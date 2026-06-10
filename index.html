@@ -2,10 +2,9 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>漫畫圖片閱讀器</title>
-	
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,7 +12,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #f4f3f0;
       color: #1a1a1a;
-      height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -21,63 +20,108 @@
 
     #app {
       display: flex;
+      flex-direction: column;
       flex: 1;
       overflow: hidden;
     }
 
-    /* ── Sidebar ── */
-    #sidebar {
-      width: 26%;
-      min-width: 0;
+    /* ── Control Panel (top) ── */
+    #panel {
+      height: 38%;
+      min-height: 0;
       background: #fafaf8;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      padding: 18px 16px;
       overflow-y: auto;
       flex-shrink: 0;
     }
 
+    /* scrollable inner content */
+    #panel-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 16px;
+      flex: 1;
+    }
+
+    /* Two-column grid for fields on wider screens */
+    .fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .fields-grid .full { grid-column: 1 / -1; }
+
     /* ── Draggable Divider ── */
     #divider {
-      width: 6px;
+      height: 10px;
       background: #e2e0da;
-      cursor: col-resize;
+      cursor: row-resize;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: background 0.15s;
       z-index: 10;
+      touch-action: none;
     }
 
     #divider:hover,
-    #divider.dragging { background: #999; }
+    #divider.dragging { background: #bbb; }
 
     #divider::after {
       content: '';
       display: block;
-      width: 2px;
-      height: 36px;
-      background: #888;
+      width: 36px;
+      height: 3px;
+      background: #999;
       border-radius: 2px;
-      opacity: 0.5;
     }
 
-    /* Prevent text/image selection while resizing */
     body.resizing {
-      cursor: col-resize !important;
+      cursor: row-resize !important;
       user-select: none;
     }
 
-    body.resizing * {
-      pointer-events: none;
+    body.resizing * { pointer-events: none; }
+    body.resizing #divider { pointer-events: auto; }
+
+    /* ── Viewer (bottom) ── */
+    #viewer {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 0;
     }
 
-    body.resizing #divider {
-      pointer-events: auto;
+    #viewer img {
+      width: 100%;
+      display: block;
     }
 
+    #placeholder {
+      color: #444;
+      font-size: 14px;
+      margin: auto;
+      text-align: center;
+      line-height: 2.4;
+      padding: 24px;
+    }
+
+    #placeholder .icon {
+      font-size: 48px;
+      opacity: 0.2;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    /* ── Shared form styles ── */
     .brand {
       font-size: 15px;
       font-weight: 600;
@@ -85,10 +129,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-bottom: 4px;
     }
-
-    .brand svg { flex-shrink: 0; }
 
     .section-label {
       font-size: 10px;
@@ -96,15 +137,14 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: #999;
-      padding-bottom: 6px;
+      padding-bottom: 5px;
       border-bottom: 1px solid #e8e6e0;
-      margin-top: 2px;
     }
 
     .field {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 4px;
     }
 
     .field label {
@@ -128,9 +168,6 @@
 
     .field input:focus { border-color: #888; }
 
-    .row { display: flex; gap: 8px; }
-    .row .field { flex: 1; }
-
     .episode-row {
       display: flex;
       align-items: center;
@@ -147,6 +184,27 @@
       flex-shrink: 0;
     }
 
+    /* Reference link */
+    #refLink {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #4a90d9;
+      text-decoration: none;
+      background: #eef4fc;
+      border: 1px solid #c8ddf5;
+      border-radius: 7px;
+      padding: 7px 10px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    #refLink:hover { background: #ddeaf8; }
+
+    #refLink svg { flex-shrink: 0; }
+
+    /* URL preview */
     #urlPreview {
       font-size: 11px;
       color: #888;
@@ -155,15 +213,23 @@
       background: #f0efe9;
       border: 1px solid #e2e0da;
       border-radius: 7px;
-      padding: 8px 10px;
+      padding: 7px 10px;
       font-family: monospace;
     }
 
     #urlPreview .highlight { color: #d06030; font-weight: 600; }
 
+    /* Bottom row: progress + button */
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     #loadBtn {
-      width: 100%;
-      height: 38px;
+      flex-shrink: 0;
+      height: 36px;
+      padding: 0 18px;
       background: #1a1a1a;
       color: #fff;
       border: none;
@@ -173,20 +239,25 @@
       font-weight: 500;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 7px;
+      gap: 6px;
       transition: background 0.15s, transform 0.1s;
-      margin-top: 2px;
+      white-space: nowrap;
     }
 
     #loadBtn:hover { background: #333; }
-    #loadBtn:active { transform: scale(0.98); }
+    #loadBtn:active { transform: scale(0.97); }
+
+    .progress-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
     #status {
-      font-size: 12px;
+      font-size: 11px;
       color: #888;
-      min-height: 18px;
-      text-align: center;
+      min-height: 16px;
     }
 
     .progress-bar {
@@ -203,171 +274,151 @@
       width: 0%;
       transition: width 0.3s;
     }
-
-    .tip {
-      margin-top: auto;
-      padding-top: 12px;
-      border-top: 1px solid #e8e6e0;
-      font-size: 11px;
-      color: #aaa;
-      line-height: 1.7;
-    }
-
-    /* ── Viewer ── */
-    #viewer {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      background: #111;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 0;
-    }
-
-    /* Images fill the viewer width — naturally responsive to panel resize */
-    #viewer img {
-      width: 100%;
-      display: block;
-    }
-
-    #placeholder {
-      color: #444;
-      font-size: 14px;
-      margin: auto;
-      text-align: center;
-      line-height: 2.4;
-    }
-
-    #placeholder .icon {
-      font-size: 48px;
-      opacity: 0.2;
-      display: block;
-      margin-bottom: 8px;
-    }
   </style>
 </head>
 <body>
 
 <div id="app">
-  <!-- Sidebar -->
-  <div id="sidebar">
 
-    <div class="brand">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
-      </svg>
-      漫畫圖片閱讀器
-    </div>
+  <!-- ── Top control panel ── -->
+  <div id="panel">
+    <div id="panel-inner">
 
-    <div class="section-label">漫畫路徑</div>
-	<p>https://m.gugu5.com/o/zheyishiwoyaodangzhizun/</p>
-    <div class="field">
-      <label>根路徑</label>
-      <input type="text" id="rootUrl"
-        value="https://p8.taoman.cc/scomic/zheyishiwoyaodangzhizun-taiyishengshuiyuanzhua4manye/0/"
-        oninput="updatePreview()" />
-    </div>
-
-    <div class="field">
-      <label>集數 &amp; 編號</label>
-      <div class="episode-row">
-        <div class="field" style="gap:0">
-          <input type="number" id="episode" value="562" min="1" placeholder="集數" oninput="updatePreview()" />
-        </div>
-        <span class="dash">-</span>
-        <div class="field" style="gap:0">
-          <input type="text" id="code" value="y4f8" placeholder="編號" oninput="updatePreview()" />
-        </div>
+      <div class="brand">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+        </svg>
+        漫畫圖片閱讀器
       </div>
-    </div>
 
-    <div class="field">
-      <label>副檔名</label>
-      <input type="text" id="ext" value="jpg" style="max-width:72px" oninput="updatePreview()" />
-    </div>
-
-    <div class="field">
-      <label>URL 預覽</label>
-      <div id="urlPreview"></div>
-    </div>
-
-    <div class="section-label">頁數範圍</div>
-
-    <div class="row">
+      <!-- Reference URL -->
       <div class="field">
-        <label>起始頁</label>
-        <input type="number" id="from" value="1" min="1" />
+        <label>參考網址（點擊開啟）</label>
+        <a id="refLink" href="https://p8.taoman.cc/scomic/zheyishiwoyaodangzhizun-taiyishengshuiyuanzhua4manye/0/" target="_blank" rel="noopener">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          https://p8.taoman.cc/scomic/zheyishiwoyaodangzhizun-taiyishengshuiyuanzhua4manye/0/
+        </a>
       </div>
+
+      <div class="section-label">漫畫路徑</div>
+
+      <div class="field full">
+        <label>根路徑</label>
+        <input type="text" id="rootUrl"
+          value="https://p8.taoman.cc/scomic/zheyishiwoyaodangzhizun-taiyishengshuiyuanzhua4manye/0/"
+          oninput="updatePreview()" />
+      </div>
+
+      <div class="fields-grid">
+        <div class="field full">
+          <label>集數 &amp; 編號</label>
+          <div class="episode-row">
+            <div class="field" style="gap:0">
+              <input type="number" id="episode" value="556" min="1" placeholder="集數" oninput="updatePreview()" />
+            </div>
+            <span class="dash">-</span>
+            <div class="field" style="gap:0">
+              <input type="text" id="code" value="gj2a" placeholder="編號" oninput="updatePreview()" />
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>起始頁</label>
+          <input type="number" id="from" value="1" min="1" />
+        </div>
+        <div class="field">
+          <label>結束頁</label>
+          <input type="number" id="to" value="175" min="1" />
+        </div>
+
+        <div class="field">
+          <label>副檔名</label>
+          <input type="text" id="ext" value="jpg" oninput="updatePreview()" />
+        </div>
+      </div>
+
       <div class="field">
-        <label>結束頁</label>
-        <input type="number" id="to" value="175" min="1" />
+        <label>URL 預覽</label>
+        <div id="urlPreview"></div>
       </div>
+
+      <div class="action-row">
+        <button id="loadBtn" onclick="loadImages()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          顯示圖片
+        </button>
+        <div class="progress-wrap">
+          <div id="status"></div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+      </div>
+
     </div>
-
-    <button id="loadBtn" onclick="loadImages()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-      </svg>
-      顯示圖片
-    </button>
-
-    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    <div id="status"></div>
-
-    <div class="tip">
-      拖曳中間分隔線可調整左右寬度（最小各 10%）。<br>
-      修改集數或編號後點「顯示圖片」載入。
-    </div>
-
   </div>
 
-  <!-- Draggable divider -->
+  <!-- ── Draggable horizontal divider ── -->
   <div id="divider"></div>
 
-  <!-- Viewer -->
+  <!-- ── Bottom viewer ── -->
   <div id="viewer">
     <div id="placeholder">
       <span class="icon">📖</span>
       設定路徑後點「顯示圖片」
     </div>
   </div>
+
 </div>
 
 <script>
   /* ════════════════════════════════
-     Resizable panel
+     Resizable panel — mouse + touch
   ════════════════════════════════ */
   const divider = document.getElementById('divider');
-  const sidebar = document.getElementById('sidebar');
+  const panel   = document.getElementById('panel');
   const app     = document.getElementById('app');
 
   let dragging = false;
 
-  divider.addEventListener('mousedown', function (e) {
+  function onDragStart(e) {
     dragging = true;
     divider.classList.add('dragging');
     document.body.classList.add('resizing');
     e.preventDefault();
-  });
+  }
 
-  document.addEventListener('mousemove', function (e) {
+  function onDragMove(e) {
     if (!dragging) return;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect    = app.getBoundingClientRect();
-    const totalW  = rect.width;
-    const offsetX = e.clientX - rect.left;
-    const minPx   = totalW * 0.10;
-    const maxPx   = totalW * 0.90;
-    const newW    = Math.min(Math.max(offsetX, minPx), maxPx);
-    sidebar.style.width = newW + 'px';
-  });
+    const totalH  = rect.height;
+    const offsetY = clientY - rect.top;
+    const minPx   = totalH * 0.10;
+    const maxPx   = totalH * 0.90;
+    const newH    = Math.min(Math.max(offsetY, minPx), maxPx);
+    panel.style.height = newH + 'px';
+  }
 
-  document.addEventListener('mouseup', function () {
+  function onDragEnd() {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
     document.body.classList.remove('resizing');
-  });
+  }
+
+  /* Mouse */
+  divider.addEventListener('mousedown', onDragStart);
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+
+  /* Touch */
+  divider.addEventListener('touchstart', onDragStart, { passive: false });
+  document.addEventListener('touchmove',  onDragMove,  { passive: false });
+  document.addEventListener('touchend',   onDragEnd);
 
   /* ════════════════════════════════
      URL helpers
